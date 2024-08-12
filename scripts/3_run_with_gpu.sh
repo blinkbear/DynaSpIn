@@ -13,19 +13,19 @@ export NVIDIA_VISIBLE_DEVICES=0,1
 NP_PER_NODE=2
 TOTAL_NP=4
 
-DRAFT_MODEL_PATH="/home/wychen/.cache/huggingface/hub/llama-68m/ggml-model-f16.gguf"
-TARGET_MODEL_PATH="/home/wychen/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf"
+DRAFT_MODEL_PATH="/home/lucz/.cache/huggingface/hub/llama-68m/ggml-model-f16.gguf"
+TARGET_MODEL_PATH="/home/lucz/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf"
 PROMPT_PATH="./prompts/dan.txt"
 HOSTS_PATH="./hosts"
 
-mpirun -np $TOTAL_NP --hostfile ${HOSTS_PATH} --bind-to none --map-by ppr:$NP_PER_NODE:node --report-bindings -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=eno12399np0 -x NCCL_IB_DISABLE=0 -x NCCL_IB_CUDA_SUPPORT=1 -mca btl_tcp_if_include eno12399np0 \
+mpirun --allow-run-as-root -np $TOTAL_NP --hostfile ${HOSTS_PATH} --bind-to none --map-by ppr:$NP_PER_NODE:node --report-bindings -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=eno12399np0 -x NCCL_IB_DISABLE=0 -x NCCL_IB_CUDA_SUPPORT=1 -mca btl_tcp_if_include eno12399np0 \
     build/bin/speculative \
     -md ${DRAFT_MODEL_PATH} \
     -m ${TARGET_MODEL_PATH}  \
     -e \
     -f ${PROMPT_PATH} \
     -n 128 \
-    --mpi-layer-split 0.25,0.25,0.25,0.25/1.0 \
+    --mpi-layer-split 0.5,0.3,0.2/1.0 \
     --ignore-eos \
     --temp -1.0 \
     --repeat-last-n 0 \
