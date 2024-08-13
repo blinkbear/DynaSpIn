@@ -21,18 +21,27 @@ export ORTE_BASE_USER_DEBUGGER=/usr/bin/gdb
 export NVIDIA_VISIBLE_DEVICES=0,1
 NP_PER_NODE=2
 TOTAL_NP=4
-
-DRAFT_MODEL_PATH="/home/wychen/.cache/huggingface/hub/llama-160m/ggml-model-f16.gguf"
-TARGET_MODEL_PATH="/home/wychen/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf"
+USER_NAME=$(whoami)
+DRAFT_MODEL_PATH="/home/$USER_NAME/.cache/huggingface/hub/llama-160m/ggml-model-f16.gguf"
+TARGET_MODEL_PATH="/home/$USER_NAME/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf"
 HOSTS_PATH="./hosts"
 PROMPT_PATH="./prompts/mtbench_prompts.json"
-
-jq -c '.[]' $PROMPT_PATH | while read item; do
+# 读取 JSON 文件并将 id 和 prompt 分别保存到两个数组中
+ids=()
+prompts=()
+while IFS= read -r item; do
     id=$(echo "$item" | jq -r '.[0]')
     prompt=$(echo "$item" | jq -r '.[1]')
+    ids+=("$id")
+    prompts+=("$prompt")
+done < <(jq -c '.[]' $PROMPT_PATH)
+
+# 遍历数组并执行 mpirun 命令
+for i in "${!ids[@]}"; do
+    id="${ids[$i]}"
+    prompt="${prompts[$i]}"
 
     echo "Running with id: $id"
-    # prompt=$(echo "$prompt" | sed -E 's/\[INST\]//g; s/\[\/INST\]//g; s/nnASSISTANT:?//g')
     echo "Prompt: $prompt"
 
     mpirun --allow-run-as-root -np $TOTAL_NP --hostfile ${HOSTS_PATH} --bind-to none --map-by ppr:$NP_PER_NODE:node --report-bindings -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=eno12399np0 -x NCCL_IB_DISABLE=0 -x NCCL_IB_CUDA_SUPPORT=1 -mca btl_tcp_if_include eno12399np0 \
@@ -56,5 +65,5 @@ jq -c '.[]' $PROMPT_PATH | while read item; do
     --batch-size 256 \
     --cont-batching \
     --parallel 3 \
-    --prompt "$prompt"  >> ./result.log  
+    --prompt "$prompt"  >> ./result.log 2>&1
 done
