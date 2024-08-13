@@ -697,7 +697,8 @@ int main(int argc, char ** argv) {
         double decode_speed = (double)n_predict / ((double)(t_dec_end - t_dec_start) / 1e6f);
         double itt = (double)avg_itt / 1e6f;
         double final_ttft = (double)ttft / 1e6f;
-        results << encode_speed << ',' << decode_speed << ',' << itt << ',' << final_ttft << '\n';
+        double accept_rate = (double)n_accept / (double)n_drafted;
+        results << encode_speed << ',' << decode_speed << ',' << itt << ',' << final_ttft << ',' << accept_rate << '\n';
         LOG_TEE("OVERALL SYSTEM MEASUREMENTS:\n");
         LOG_TEE("encoded %4d tokens in %8.3f seconds, speed: %8.3f t/s\n", n_input, (t_enc_end - t_enc_start) / 1e6f,
                 encode_speed);
@@ -705,6 +706,7 @@ int main(int argc, char ** argv) {
                 decode_speed);
         LOG_TEE("Average inter-token latency: %f seconds\n", itt);
         LOG_TEE("Time-to-first-token: %f seconds\n", final_ttft);
+        LOG_TEE("Accept rate: %f\n", accept_rate);
         results.close();
 
     }
@@ -1007,6 +1009,7 @@ bool start_async_spec_run(const gpt_params &params, llama_context *ctx_tgt, llam
 
             // attempt to split the branch if the probability is high enough
             for (int f = 1; f < 8; ++f) {
+                LOG("Checking if we should split seq %3d, probability: %.3f, split threshold: %.3f, n_seq_cur: %d, n_parallel: %d, cur_p[f].p: %.3f, p_adjust: %.3f\n", s, cur_p[f].p, params.p_split, n_seq_cur, params.n_parallel, cur_p[f].p, p_adjust);
                 if (n_seq_cur < params.n_parallel - 1 && cur_p[f].p > params.p_split + p_adjust) {
                     n_seq_cur++;
                     LOG("splitting seq %3d into %3d\n", s, n_seq_cur);

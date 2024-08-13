@@ -5489,6 +5489,7 @@ static struct ggml_cgraph * llama_decode_internal_phased(
     const auto & cparams = lctx.cparams;
 
     const auto n_batch = cparams.n_batch;
+    // LLAMA_LOG_INFO("%s: n_tokens = %d, n_batch = %d\n", __func__, n_tokens, n_batch);
 
     if (n_tokens > n_batch) {
         LLAMA_LOG_ERROR("%s: n_tokens (%d) > n_batch (%d)\n", __func__, n_tokens, n_batch);

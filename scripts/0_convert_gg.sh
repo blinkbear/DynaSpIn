@@ -1,1 +1,3 @@
-python3 convert.py ~/.cache/huggingface/hub/models--meta-llama--Llama-2-13b-hf/snapshots/5c31dfb671ce7cfe2d7bb7c04375e44c55e815b1 --outfile ~/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf --outtype f16
+# python3 convert.py ~/.cache/huggingface/hub/models--meta-llama--Llama-2-13b-hf/snapshots/5c31dfb671ce7cfe2d7bb7c04375e44c55e815b1 --outfile ~/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf --outtype f16
+
+python3 convert.py /home/wychen/.cache/huggingface/hub/models--JackFram--llama-160m/snapshots/aca9b687d1425f863dcf5de9a4c96e3fe36266dd --outfile /home/wychen/.cache/huggingface/hub/llama-160m/ggml-model-f16.gguf --outtype f16
