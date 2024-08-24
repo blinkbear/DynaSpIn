@@ -544,6 +544,12 @@ bool gpt_params_parse_ex(int argc, char ** argv, gpt_params & params) {
                 invalid_param = true;
                 break;
             }
+        } else if (arg == "--result-path" || arg == "-res-path") {
+            if (++i >= argc) {
+               invalid_param = true;
+                break; 
+            }
+            params.result_path = std::string(argv[i]);
 #ifdef LLAMA_SUPPORTS_GPU_OFFLOAD
             params.n_gpu_layers = std::stoi(argv[i]);
 #else
@@ -1426,6 +1432,7 @@ void dump_non_result_info_yaml(FILE * stream, const gpt_params & params, const l
     fprintf(stream, "multiline_input: %s # default: false\n", params.multiline_input ? "true" : "false");
     fprintf(stream, "n_gpu_layers: %d # default: -1\n", params.n_gpu_layers);
     fprintf(stream, "n_predict: %d # default: -1 (unlimited)\n", params.n_predict);
+    fprintf(stream, "result_path: %s # default: unset\n", params.result_path.c_str());
     fprintf(stream, "n_probs: %d # only used by server binary, default: 0\n", sparams.n_probs);
     fprintf(stream, "no_mmap: %s # default: false\n", !params.use_mmap ? "true" : "false");
     fprintf(stream, "no_mul_mat_q: %s # default: false\n", !params.mul_mat_q ? "true" : "false");

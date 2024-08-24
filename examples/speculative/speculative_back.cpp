@@ -8,7 +8,7 @@
 #include <deque>
 #include <stdint.h>
 #include <fstream>
-
+#include "multi_armed_bandit.h"
 
 #define SPEC_VOCAB_MAX_SIZE_DIFFERENCE  100
 #define SPEC_VOCAB_CHECK_START_TOKEN_ID 5
@@ -137,8 +137,16 @@ int main(int argc, char ** argv) {
     llama_split_layers_weighted(ctx_tgt, params.mpi_layer_split[0].data(), params.mpi_layer_split[0].size());
     llama_split_layers_weighted(ctx_dft, params.mpi_layer_split[1].data(), params.mpi_layer_split[1].size());
 
+    int arms = 8;
+    double epsilon = 0.1;
+    double c = 2.0;
+    int total_pulls = 100;
+    double stop_threshold = 0.03;
+    int min_pulls = 10; 
+    MultiArmedBanditEpsilonGreedyUCB bandit(params.n_parallel, epsilon, c);
+
     std::deque<int> free_sequence_offsets;
-    const int n_simul_seqs = 1000;
+    const int n_simul_seqs = 10;
     const int max_seq = n_simul_seqs * n_seq_dft + 1;
     for (int i = 0; i < n_simul_seqs; i++) {
         free_sequence_offsets.push_back(i*n_seq_dft + 1);
@@ -439,6 +447,16 @@ int main(int argc, char ** argv) {
         std::deque<int> keeps(seq_ids.begin(), seq_ids.end());
         keeps.erase(std::find(keeps.begin(), keeps.end(),s_keep));
         keeps.push_front(s_keep);
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto [best_arm, rewards, round] = bandit.run(total_pulls, stop_threshold, min_pulls);
+        LOG("Best arm: %d, rewards: %f, round: %d\n", best_arm, float(std::accumulate(rewards.begin(), rewards.end(), 0.0)), round);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        LOG("MAB Time taken: %ldus\n", duration.count());
+        i_dft = best_arm;
+
+
         while (!keeps.empty()) {
 
             LOG("sampling target: s_keep = %3d, i_dft = %3d, i_batch_tgt = %3d, current_run.n_past_tgt = %3d, n_past_tgt = %3d, seq_offset = %d, keeps[0] = %d\n", s_keep, i_dft, drafts[keeps[0]].i_batch_tgt[i_dft], current_run.n_past_tgt, n_past_tgt, current_run.seq_offset, keeps[0]);
@@ -540,6 +558,11 @@ int main(int argc, char ** argv) {
                         ++n_past_tgt;
                         ++n_past_dft;
                     }
+
+                    // update reward for the chosen arm
+                    bandit.pull_arm(i_dft, 0.1);
+                    break;
+
                     ++i_dft;
                     if (params.use_color) {
                         // Color token according to its origin sequence
@@ -550,6 +573,12 @@ int main(int argc, char ** argv) {
                         continue;
                     }
                 }
+            }
+
+            if (n_accept / params.n_draft > 0.5) {
+                params.n_draft = std::max(1, params.n_draft * 2);
+            } else if (n_accept / params.n_draft < 0.1) {
+                params.n_draft = std::max(1, params.n_draft / 2);
             }
 
             if (params.use_color) {
@@ -702,7 +731,8 @@ int main(int argc, char ** argv) {
         double accept_rate = (double)n_accept / (double)n_drafted;
         int n_draft = params.n_draft;
         int n_predict = params.n_predict;
-        results << n_predict << ',' << n_draft << ',' << encode_speed << ',' << decode_speed << ',' << itt << ',' << final_ttft << ',' << accept_rate << '\n';
+        int n_parrallel = params.n_parallel;
+        results << n_predict << ',' << n_parrallel << ',' << n_draft << ',' << encode_speed << ',' << decode_speed << ',' << itt << ',' << final_ttft << ',' << accept_rate << '\n';
         LOG_TEE("OVERALL SYSTEM MEASUREMENTS:\n");
         LOG_TEE("encoded %4d tokens in %8.3f seconds, speed: %8.3f t/s\n", n_input, (t_enc_end - t_enc_start) / 1e6f,
                 encode_speed);
@@ -1015,6 +1045,7 @@ bool start_async_spec_run(const gpt_params &params, llama_context *ctx_tgt, llam
             for (int f = 1; f < 8; ++f) {
                 LOG("Checking if we should split seq %3d, probability: %.3f, split threshold: %.3f, n_seq_cur: %d, n_parallel: %d, cur_p[f].p: %.3f, p_adjust: %.3f\n", s, cur_p[f].p, params.p_split, n_seq_cur, params.n_parallel, cur_p[f].p, p_adjust);
                 if (n_seq_cur < params.n_parallel - 1 && cur_p[f].p > params.p_split + p_adjust) {
+                // if (true) {    
                     n_seq_cur++;
                     LOG("splitting seq %3d into %3d\n", s, n_seq_cur);
 

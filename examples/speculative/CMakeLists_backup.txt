@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.10)
+project(MultiArmedBandit)
+
+# Set the target name
+set(TARGET speculative)
+
+# Add the source files
+set(SOURCE_FILES
+    speculative.cpp
+    multi_armed_bandit.cpp  # Add this line to include multi_armed_bandit.cpp
+)
+
+# Add the executable
+add_executable(${TARGET} ${SOURCE_FILES})
+
+# Install the target
+install(TARGETS ${TARGET} RUNTIME)
+
+# Link libraries
+target_link_libraries(${TARGET} PRIVATE common llama ${CMAKE_THREAD_LIBS_INIT})
+
+# Set the C++ standard
+target_compile_features(${TARGET} PRIVATE cxx_std_11)

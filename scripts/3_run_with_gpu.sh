@@ -4,7 +4,7 @@
 
 export CUDA_HOME=/usr/local/cuda
 export PATH=${CUDA_HOME}/bin:${PATH}
-export LLAMA_CUBLAS=on
+export LLAMA_CUBLAS=1
 
 cd build
 
@@ -26,6 +26,8 @@ DRAFT_MODEL_PATH="/home/$USER_NAME/.cache/huggingface/hub/llama-160m/ggml-model-
 TARGET_MODEL_PATH="/home/$USER_NAME/.cache/huggingface/hub/llama-2-13b/ggml-model-f16.gguf"
 HOSTS_PATH="./hosts"
 PROMPT_PATH="./prompts/mtbench_prompts.json"
+
+
 # 读取 JSON 文件并将 id 和 prompt 分别保存到两个数组中
 ids=()
 prompts=()
@@ -36,34 +38,47 @@ while IFS= read -r item; do
     prompts+=("$prompt")
 done < <(jq -c '.[]' $PROMPT_PATH)
 
-# 遍历数组并执行 mpirun 命令
-for i in "${!ids[@]}"; do
-    id="${ids[$i]}"
-    prompt="${prompts[$i]}"
+n_predicts=(128)
+drafts=(4)
 
-    echo "Running with id: $id"
-    echo "Prompt: $prompt"
+for n_predict in "${n_predicts[@]}"; do
+    echo "Running with n_predict: $n_predict"
 
-    mpirun --allow-run-as-root -np $TOTAL_NP --hostfile ${HOSTS_PATH} --bind-to none --map-by ppr:$NP_PER_NODE:node --report-bindings -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=eno12399np0 -x NCCL_IB_DISABLE=0 -x NCCL_IB_CUDA_SUPPORT=1 -mca btl_tcp_if_include eno12399np0 \
-    build/bin/speculative \
-    -md ${DRAFT_MODEL_PATH} \
-    -m ${TARGET_MODEL_PATH}  \
-    -e \
-    -n 10 \
-    --mpi-layer-split 0.5,0.3,0.2/1.0 \
-    --ignore-eos \
-    --temp -1.0 \
-    --repeat-last-n 0 \
-    --draft 8 \
-    --threads-batch 32 \
-    --threads 32 \
-    --ctx-size 1024 \
-    --p-accept 0 \
-    --p-split 0.001 \
-    --p-recovery 0.4 \
-    --p-decay 0.01 \
-    --batch-size 256 \
-    --cont-batching \
-    --parallel 3 \
-    --prompt "$prompt"  >> ./result.log 2>&1
+    for draft in "${drafts[@]}"; do
+        echo "Running with draft: $draft"
+
+        # 遍历数组并执行 mpirun 命令
+        for i in "${!ids[@]}"; do
+            id="${ids[$i]}"
+            prompt="${prompts[$i]}"
+
+            echo "Running with id: $id"
+            echo "Prompt: $prompt"
+
+            mpirun --allow-run-as-root -np $TOTAL_NP --hostfile ${HOSTS_PATH} --bind-to none --map-by ppr:$NP_PER_NODE:node --report-bindings -x NCCL_DEBUG=INFO -x NCCL_SOCKET_IFNAME=eno12399np0 -x NCCL_IB_DISABLE=0 -x NCCL_IB_CUDA_SUPPORT=1 -mca btl_tcp_if_include eno12399np0 \
+            build/bin/speculative \
+            -md ${DRAFT_MODEL_PATH} \
+            -m ${TARGET_MODEL_PATH}  \
+            -e \
+            -n "${n_predict}" \
+            --mpi-layer-split 0.25,0.15,0.25,0.25/1.0 \
+            --ignore-eos \
+            --temp -1.0 \
+            --repeat-last-n 0 \
+            --draft ${draft} \
+            --threads-batch 32 \
+            --threads 32 \
+            --ctx-size 1024 \
+            --p-accept 0 \
+            --p-split 0.001 \
+            --p-recovery 0.4 \
+            --p-decay 0.01 \
+            --batch-size 256 \
+            --cont-batching \
+            --parallel ${TOTAL_NP} \
+            --result-path ./${n_predict}_${TOTAL_NP}_${draft}_result.csv \
+            --prompt "${prompt}" > ./result.log 
+            break    
+        done
+    done    
 done

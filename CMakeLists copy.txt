@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.13)  # for add_link_options
 project("llama.cpp" C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CUDA_ARCHITECTURES "60;70;75;80")  # 根据你的 GPU 架构设置
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
+set(CMAKE_CUDA_TOOLKIT_INCLUDE_DIR /usr/local/cuda/include)
+set(CMAKE_CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
 
 if (NOT XCODE AND NOT MSVC AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -77,10 +81,10 @@ endif()
 
 # 3rd party libs
 option(LLAMA_ACCELERATE                      "llama: enable Accelerate framework"               ON)
-option(LLAMA_BLAS                            "llama: use BLAS"                                  OFF)
+option(LLAMA_BLAS                            "llama: use BLAS"                                  ON)
 set(LLAMA_BLAS_VENDOR "Generic" CACHE STRING "llama: BLAS library vendor")
-option(LLAMA_CUBLAS                          "llama: use CUDA"                                  OFF)
-#option(LLAMA_CUDA_CUBLAS                     "llama: use cuBLAS for prompt processing"          OFF)
+option(LLAMA_CUBLAS                          "llama: use CUDA"                                  ON)
+option(LLAMA_CUDA_CUBLAS                     "llama: use cuBLAS for prompt processing"          ON)
 option(LLAMA_CUDA_FORCE_DMMV                 "llama: use dmmv instead of mmvq CUDA kernels"     OFF)
 option(LLAMA_CUDA_FORCE_MMQ                  "llama: use mmq kernels instead of cuBLAS"         OFF)
 set(LLAMA_CUDA_DMMV_X      "32" CACHE STRING "llama: x stride for dmmv CUDA kernels")
@@ -251,7 +255,7 @@ endif()
 if (LLAMA_CUBLAS)
     cmake_minimum_required(VERSION 3.16)
 
-    find_package(CUDAToolkit)
+    find_package(CUDAToolkit REQUIRED)
     if (CUDAToolkit_FOUND)
         message(STATUS "cuBLAS found")
 
